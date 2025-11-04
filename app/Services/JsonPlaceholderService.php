@@ -227,8 +227,6 @@ class JsonPlaceholderService
      */
     private function deletePost(int $id): bool
     {
-        $response = Http::delete("{$this->baseUrl}/posts/{$id}");
-
-        return $response->successful();
+        return Http::delete("{$this->baseUrl}/posts/{$id}")->successful();
     }
 }

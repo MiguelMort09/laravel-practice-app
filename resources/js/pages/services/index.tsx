@@ -68,7 +68,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Services({ posts: paginatedPosts, success }: ServicesProps) {
     const posts = paginatedPosts?.data || [];
-    const { processing, errors } = usePage().props;
+    const { errors } = usePage().props;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [postToDelete, setPostToDelete] = useState<Post | null>(null);

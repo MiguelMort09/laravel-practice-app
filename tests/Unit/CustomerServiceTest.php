@@ -4,11 +4,13 @@ use App\Models\Customer;
 use App\Models\User;
 use App\Services\CustomerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
+uses(TestCase::class);
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->service = new CustomerService();
+    $this->service = new CustomerService;
     $this->user = User::factory()->create();
 });
 
@@ -101,7 +103,7 @@ describe('update', function () {
 
     it('retorna el modelo actualizado', function () {
         $customer = Customer::factory()->forUser($this->user)->create();
-        
+
         $updated = $this->service->update($customer, ['name' => 'Updated']);
 
         expect($updated->wasRecentlyCreated)->toBeFalse()

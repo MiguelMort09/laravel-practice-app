@@ -1,8 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import { Pencil, Trash2, Plus, FileText, CheckCircle, AlertTriangle, FilePlus } from 'lucide-react';
+import { Pencil, Trash2, Plus, FileText, CheckCircle, AlertTriangle, FilePlus, Loader } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,10 +68,12 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Services({ posts: paginatedPosts, success }: ServicesProps) {
     const posts = paginatedPosts?.data || [];
+    const { processing, errors } = usePage().props;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [postToDelete, setPostToDelete] = useState<Post | null>(null);
     const [editingPost, setEditingPost] = useState<Post | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         body: '',
@@ -103,40 +105,63 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const currentPage = paginatedPosts?.current_page || 1;
-        
+
+        setIsSubmitting(true);
+
         if (editingPost) {
-            router.put(`/services/${editingPost.id}`, {
-                ...formData,
-                userId: editingPost.userId,
-                page: currentPage,
-            }, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsDialogOpen(false);
+            router.put(
+                `/services/${editingPost.id}`,
+                {
+                    ...formData,
+                    userId: editingPost.userId,
+                    page: currentPage,
                 },
-            });
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        setIsDialogOpen(false);
+                        setIsSubmitting(false);
+                    },
+                    onError: () => {
+                        setIsSubmitting(false);
+                    },
+                }
+            );
         } else {
-            router.post('/services', {
-                ...formData,
-                userId: 1,
-            }, {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setIsDialogOpen(false);
+            router.post(
+                '/services',
+                {
+                    ...formData,
+                    userId: 1,
                 },
-            });
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        setIsDialogOpen(false);
+                        setIsSubmitting(false);
+                    },
+                    onError: () => {
+                        setIsSubmitting(false);
+                    },
+                }
+            );
         }
     };
 
     const handleDelete = () => {
         if (postToDelete) {
             const currentPage = paginatedPosts?.current_page || 1;
+            setIsSubmitting(true);
             router.delete(`/services/${postToDelete.id}`, {
                 data: { page: currentPage },
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsDeleteDialogOpen(false);
                     setPostToDelete(null);
+                    setIsSubmitting(false);
+                },
+                onError: () => {
+                    setIsSubmitting(false);
                 },
             });
         }
@@ -154,7 +179,7 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                         </AlertDescription>
                     </Alert>
                 )}
-                
+
                 <Card>
                     <CardHeader className="pb-3">
                         <div className="flex flex-row items-center justify-between">
@@ -237,7 +262,7 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                         </TableBody>
                     </Table>
                         </div>
-                
+
                         {/* Paginación */}
                         {paginatedPosts && paginatedPosts.last_page > 1 && (
                     <div className="flex flex-row items-center justify-between mt-3">
@@ -307,7 +332,11 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                                             setFormData({ ...formData, title: e.target.value })
                                         }
                                         required
+                                        className={errors?.title ? 'border-red-500' : ''}
                                     />
+                                    {errors?.title && (
+                                        <p className="text-xs text-red-600">{errors.title}</p>
+                                    )}
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="body" className="text-sm">Contenido *</Label>
@@ -320,8 +349,11 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                                         }
                                         required
                                         rows={5}
-                                        className="resize-none"
+                                        className={`resize-none ${errors?.body ? 'border-red-500' : ''}`}
                                     />
+                                    {errors?.body && (
+                                        <p className="text-xs text-red-600">{errors.body}</p>
+                                    )}
                                     <p className="text-xs text-muted-foreground">
                                         {formData.body.length} caracteres
                                     </p>
@@ -333,12 +365,22 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                                         type="button"
                                         variant="outline"
                                         onClick={() => setIsDialogOpen(false)}
+                                        disabled={isSubmitting}
                                     >
                                         Cancelar
                                     </Button>
-                                    <Button type="submit">
-                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                        {editingPost ? 'Guardar' : 'Crear'}
+                                    <Button type="submit" disabled={isSubmitting}>
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader className="h-4 w-4 mr-1 animate-spin" />
+                                                {editingPost ? 'Guardando...' : 'Creando...'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="h-4 w-4 mr-1" />
+                                                {editingPost ? 'Guardar' : 'Crear'}
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </DialogFooter>
@@ -361,15 +403,28 @@ export default function Services({ posts: paginatedPosts, success }: ServicesPro
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <div className="flex flex-row gap-2 w-full sm:w-auto">
-                                <AlertDialogCancel onClick={() => setPostToDelete(null)}>
+                                <AlertDialogCancel
+                                    onClick={() => setPostToDelete(null)}
+                                    disabled={isSubmitting}
+                                >
                                     Cancelar
                                 </AlertDialogCancel>
                                 <AlertDialogAction
                                     onClick={handleDelete}
-                                    className="bg-destructive hover:bg-destructive/90"
+                                    disabled={isSubmitting}
+                                    className="bg-destructive hover:bg-destructive/90 disabled:opacity-50"
                                 >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Eliminar
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader className="h-4 w-4 mr-1 animate-spin" />
+                                            Eliminando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 className="h-4 w-4 mr-1" />
+                                            Eliminar
+                                        </>
+                                    )}
                                 </AlertDialogAction>
                             </div>
                         </AlertDialogFooter>

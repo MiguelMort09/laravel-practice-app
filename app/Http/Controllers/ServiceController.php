@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Post\StorePostRequest;
+use App\Http\Requests\Post\UpdatePostRequest;
 use App\Services\JsonPlaceholderService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,44 +21,25 @@ class ServiceController extends Controller
      */
     public function index(Request $request): Response
     {
-        $perPage = $request->input('per_page', 10);
-        $page = $request->input('page', 1);
+        $page = (int) $request->input('page', 1);
 
-        // Obtener posts de JSONPlaceholder
-        $posts = $this->jsonPlaceholderService->getPosts();
-
-        // Implementar paginación manual
-        $total = count($posts);
-        $offset = ($page - 1) * $perPage;
-        $paginatedPosts = array_slice($posts, $offset, $perPage);
+        // Toda la lógica va en el servicio
+        $posts = $this->jsonPlaceholderService->getPostsWithPagination($page);
 
         return Inertia::render('services/index', [
-            'posts' => [
-                'data' => $paginatedPosts,
-                'current_page' => (int) $page,
-                'per_page' => (int) $perPage,
-                'total' => $total,
-                'last_page' => (int) ceil($total / $perPage),
-            ],
+            'posts' => $posts,
         ]);
     }
 
     /**
      * Almacena una nueva publicación
      */
-    public function store(Request $request)
+    public function store(StorePostRequest $request): RedirectResponse
     {
-        $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'body' => ['required', 'string'],
-            'userId' => ['required', 'integer'],
-        ]);
+        $validated = $request->validated();
 
-        $this->jsonPlaceholderService->createPost([
-            'title' => $request->input('title'),
-            'body' => $request->input('body'),
-            'userId' => $request->input('userId'),
-        ]);
+        // El servicio maneja la creación y sincronización
+        $this->jsonPlaceholderService->storePost($validated);
 
         return redirect()->route('services.index')
             ->with('success', 'Publicación creada correctamente.');
@@ -64,32 +48,29 @@ class ServiceController extends Controller
     /**
      * Actualiza una publicación existente
      */
-    public function update(Request $request, int $id)
+    public function update(UpdatePostRequest $request, int $id): RedirectResponse
     {
-        $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'body' => ['required', 'string'],
-            'userId' => ['required', 'integer'],
-        ]);
+        $validated = $request->validated();
+        $currentPage = (int) $request->input('page', 1);
 
-        $this->jsonPlaceholderService->updatePost($id, [
-            'title' => $request->input('title'),
-            'body' => $request->input('body'),
-            'userId' => $request->input('userId'),
-        ]);
+        // El servicio maneja la actualización y sincronización
+        $this->jsonPlaceholderService->updatePostAndSync($id, $validated);
 
-        return redirect()->route('services.index', ['page' => $request->input('page', 1)])
+        return redirect()->route('services.index', ['page' => $currentPage])
             ->with('success', 'Publicación actualizada correctamente.');
     }
 
     /**
      * Elimina una publicación
      */
-    public function destroy(Request $request, int $id)
+    public function destroy(Request $request, int $id): RedirectResponse
     {
-        $this->jsonPlaceholderService->deletePost($id);
+        $currentPage = (int) $request->input('page', 1);
 
-        return redirect()->route('services.index', ['page' => $request->input('page', 1)])
+        // El servicio maneja la eliminación y sincronización
+        $this->jsonPlaceholderService->deletePostAndSync($id);
+
+        return redirect()->route('services.index', ['page' => $currentPage])
             ->with('success', 'Publicación eliminada correctamente.');
     }
 }
